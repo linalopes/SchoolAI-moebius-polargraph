@@ -1,0 +1,70 @@
+Moebius Polargraph uses more than one license. This file describes
+scope. It does not relicense third-party material.
+
+This project is open source. The complete repository is not uniformly
+MIT-licensed.
+
+## Firmware (MIT)
+
+Original firmware contributions and modifications by Lina Lopes, and
+derived Walldraw portions, are licensed under the MIT License.
+
+Copyright (c) 2021 shihaipeng03
+Copyright (c) 2026 Lina Lopes
+
+The full MIT License text is in LICENSES/MIT.txt.
+
+This MIT grant covers the Arduino sketches under firmware/ that carry
+an SPDX-License-Identifier: MIT header. It does not cover bundled
+third-party libraries.
+
+Upstream Walldraw:
+
+  https://github.com/shihaipeng03/Walldraw
+
+Lina Lopes did not create the original Walldraw firmware or hardware.
+
+Moebius_Polargraph_TwoStepperTest.ino is MIT-licensed as source, but it
+depends on AccelStepper. AccelStepper is licensed GPL V2 or Commercial
+and is not relicensed by the MIT grant. Distributing a combined program
+built with AccelStepper is subject to AccelStepper's license terms.
+
+## Original documentation (CC BY 4.0)
+
+Original documentation written by Lina Lopes for Moebius Polargraph is
+licensed under Creative Commons Attribution 4.0 International
+(CC BY 4.0).
+
+Canonical deed:
+
+  https://creativecommons.org/licenses/by/4.0/
+
+Full license text:
+
+  LICENSES/CC-BY-4.0.txt
+
+This includes README.md, CREDITS.md, LICENSE (this file),
+LICENSES/THIRD-PARTY.md, future original manuals written by Lina Lopes,
+and original explanatory diagrams and photographs unless a file is
+explicitly marked otherwise.
+
+## Future original fabrication files (not applied yet)
+
+No original fabrication files by Lina Lopes are in this repository.
+CERN-OHL-S-2.0 is the intended future license for those files when they
+exist. It is not applied now and does not cover upstream or third-party
+parts.
+
+Intended future license:
+
+  CERN Open Hardware Licence Version 2 – Strongly Reciprocal
+  (CERN-OHL-S-2.0)
+
+## Third-party material (not licensed by Lina Lopes)
+
+Bundled libraries, the 2020 assembly PDF, and other third-party files
+keep their original copyrights and licenses. They are listed in
+LICENSES/THIRD-PARTY.md.
+
+The 2020 PDF is excluded from the MIT, CC BY 4.0, and future
+CERN-OHL-S-2.0 grants described above.

@@ -1,28 +1,32 @@
 # Moebius Polargraph
 
-Moebius Polargraph is a suspended wall-drawing machine in the **Machines to Draw** collection by Lina Lopes. Two upper stepper motors change the lengths of two cords attached to a pen holder; a servo raises and lowers the pen. The firmware in this repository is adapted from the upstream Walldraw project and is used to test the motors, set a drawing origin, and run geometric drawing tests while the machine is calibrated.
+Moebius Polargraph is a suspended wall-drawing machine in the **Machines to Draw** collection by Lina Lopes. Two upper stepper motors change the lengths of two cords attached to a pen holder; a servo raises and lowers the pen. The firmware in this repository is adapted from the upstream Walldraw project and is used to test the motors, set a drawing origin, and run geometric drawing tests.
 
 Created and maintained by Lina Lopes.
 
+This is an open-source project. It uses **multiple licenses**. The complete repository is not uniformly MIT-licensed. See [License](#license).
+
 ## Project Status
 
-This project is a **work in progress**. The machine is being calibrated and documented. It is not a finished consumer product.
+The machine is a working drawing rig and a **work in progress** for documentation and future SD-card support. It is not a finished consumer product.
+
+The mechanical cord problem has been resolved. After installing two equal cords, the machine successfully drew a circle, a triangle, a square, and a diamond. Earlier lower-area geometric distortion was caused by insufficient usable cord length, not by the inverse-kinematics model.
 
 Current firmware supports:
 
 - a two-stepper diagnostic test with no pen-lift servo and no Polargraph geometry;
-- manual cord jogging;
-- declaring a logical origin;
+- manual cord jogging and declaring a logical origin;
 - pen-up and pen-down tests;
-- a four-shape drawing test around that origin.
+- a four-shape drawing test (circle, triangle, square, diamond);
+- a standalone gallery of heart, butterfly, ellipse, and rotated-rectangle drawings.
 
-G-code playback, SD-card drawing, and a complete measured calibration procedure for this specific machine are **not implemented** in the sketches collected here.
+G-code playback and SD-card drawing are **not implemented**. They are planned in [Future SD Card Support](#future-sd-card-support).
 
 ## How It Works
 
 The two motors sit above the drawing surface. Each motor winds or unwinds a cord connected to the pen holder. Changing both cord lengths together moves the holder up or down. Changing them in opposite directions moves it left or right.
 
-The calibration sketch converts a requested XY position into two cord lengths (inverse kinematics), then steps the motors together with Bresenham-style coordination so both cords reach the target together. A servo on analog pin `A0` lifts the pen between shapes.
+The drawing sketches convert a requested XY position into two cord lengths (inverse kinematics), then step the motors together with Bresenham-style coordination so both cords reach the target together. A servo on analog pin `A0` lifts the pen between shapes.
 
 Logical `+X` is physically right. Logical `+Y` is physically up toward the motor anchors.
 
@@ -34,47 +38,50 @@ The current machine uses:
 - two **ULN2003** drivers;
 - an Arduino-compatible controller;
 - a servo to lift and lower the pen;
-- two cords from the upper motors to a suspended pen holder.
+- two **35 mm** spools;
+- two equal cords, approximately **2.30 meters** each, of **0.24 mm** round braided PE line.
 
-The sketches do not name a specific Arduino board. Pin numbers match a typical Arduino Uno-style digital layout. Pin `4` is left unused so the original Walldraw SD-card wiring can remain in place.
+The thicker 0.24 mm line did not create a significant scale problem.
+
+The sketches do not name a specific Arduino board. Pin numbers match a typical Arduino Uno-style digital layout. Pin `4` is left unused so a future SD-card interface can use the original Walldraw chip-select wiring.
 
 Firmware pin map:
 
+| Function | Pins |
+| --- | --- |
+| Motor on Arduino pins 2, 3, 5, 6 | IN1–IN4 (calibration and gallery: `m2`; two-stepper test: left motor) |
+| Motor on Arduino pins 7, 8, 9, 10 | IN1–IN4 (calibration and gallery: `m1`; two-stepper test: right motor) |
+| Pen-lift servo | `A0` (calibration and gallery) |
+| Reserved (future SD chip select) | `4` |
 
-| Function                           | Pins                                                              |
-| ---------------------------------- | ----------------------------------------------------------------- |
-| Motor on Arduino pins 2, 3, 5, 6   | IN1–IN4 (calibration sketch: `m2`; two-stepper test: left motor)  |
-| Motor on Arduino pins 7, 8, 9, 10  | IN1–IN4 (calibration sketch: `m1`; two-stepper test: right motor) |
-| Pen-lift servo                     | `A0` (calibration sketch only)                                    |
-| Reserved (original SD chip select) | `4`                                                               |
+The 28BYJ-48 half-step wiring order used by the two-stepper test is IN1, IN3, IN2, IN4. The calibration and gallery sketches pass IN1, IN2, IN3, IN4 to `TinyStepper_28BYJ_48`.
 
+These geometry values are **firmware constants**:
 
-The 28BYJ-48 half-step wiring order used by the two-stepper test is IN1, IN3, IN2, IN4. The calibration sketch passes IN1, IN2, IN3, IN4 to `TinyStepper_28BYJ_48`.
-
-These geometry values are **firmware constants**, not independently verified measurements of this physical machine:
-
-
-| Parameter                                                       | Current value in the calibration sketch |
-| --------------------------------------------------------------- | --------------------------------------- |
-| Steps per motor turn                                            | `2048`                                  |
-| Spool diameter                                                  | `35` mm                                 |
-| Motor-anchor separation (`X_SEPARATION`)                        | `820` mm                                |
-| Vertical offset of logical origin below the anchors (`LIMYMIN`) | `520` mm                                |
-| Pen-up / pen-down servo angles                                  | `90°` / `60°`                           |
-
-
-Updating those constants to match this machine is **work in progress**.
+| Parameter | Current value in the drawing sketches |
+| --- | --- |
+| Steps per motor turn | `2048` |
+| Spool diameter | `35` mm |
+| Motor-anchor separation (`X_SEPARATION`) | `820` mm |
+| Vertical offset of logical origin below the anchors (`LIMYMIN`) | `520` mm |
+| Pen-up / pen-down servo angles | `90°` / `60°` |
 
 ## Repository Structure
 
 ```text
 .
+├── LICENSE
+├── LICENSES/
+│   ├── MIT.txt
+│   ├── CC-BY-4.0.txt
+│   └── THIRD-PARTY.md
 ├── CREDITS.md
-├── LICENSES.md
 ├── README.md
 ├── firmware/
 │   ├── Moebius_Polargraph_Calibration/
 │   │   └── Moebius_Polargraph_Calibration.ino
+│   ├── Moebius_Polargraph_Gallery/
+│   │   └── Moebius_Polargraph_Gallery.ino
 │   └── Moebius_Polargraph_TwoStepperTest/
 │       └── Moebius_Polargraph_TwoStepperTest.ino
 ├── libraries/
@@ -86,11 +93,9 @@ Updating those constants to match this machine is **work in progress**.
     └── Wall Drawing Machine 2020 Installation and debugging instructions.pdf
 ```
 
-
-
 ## Firmware
 
-There are two Arduino sketches. They are independent programs. Upload one at a time.
+There are three Arduino sketches. They are independent programs. Upload one at a time.
 
 ### `Moebius_Polargraph_TwoStepperTest`
 
@@ -99,6 +104,8 @@ There are two Arduino sketches. They are independent programs. Upload one at a t
 Diagnostic sketch. It drives both 28BYJ-48 motors through ULN2003 boards with AccelStepper in half-step mode. It does **not** use the pen-lift servo and does **not** calculate Polargraph geometry.
 
 After reset, each motor travels back and forth between two opposite targets (`279` steps left, `673` steps right). The unequal distances produce a repeating motion pattern. The sketch prints a short banner at `9600` baud and then runs until the board is powered off or reset.
+
+This sketch depends on AccelStepper (GPL V2 or Commercial). See [License](#license).
 
 ### `Moebius_Polargraph_Calibration`
 
@@ -110,17 +117,15 @@ On start it attaches the servo on `A0`, raises the pen to `90°`, and prints a c
 
 Serial commands (Serial Monitor: `115200` baud, newline):
 
-
-| Key                   | Action                                                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Key | Action |
+| --- | --- |
 | `W` / `S` / `A` / `D` | Raw jog physically up / down / left / right (`20` steps per key). Raises the pen if it is down. Clears the logical origin. |
-| `Z`                   | Treat the current physical position as logical `(0, 0)`.                                                                   |
-| `F`                   | Draw a circle, triangle, square, and diamond around that origin, then return to `(0, 0)`. Requires `Z` first.              |
-| `C`                   | Return to logical `(0, 0)` with the pen up. Requires `Z` first.                                                            |
-| `U` / `N`             | Pen-up (`90°`) / pen-down (`60°`) test.                                                                                    |
-| `P`                   | Print logical XY, cord step counts, and whether origin is set.                                                             |
-| `H`                   | Print the command list.                                                                                                    |
-
+| `Z` | Treat the current physical position as logical `(0, 0)`. |
+| `F` | Draw a circle, triangle, square, and diamond around that origin, then return to `(0, 0)`. Requires `Z` first. |
+| `C` | Return to logical `(0, 0)` with the pen up. Requires `Z` first. |
+| `U` / `N` | Pen-up (`90°`) / pen-down (`60°`) test. |
+| `P` | Print logical XY, cord step counts, and whether origin is set. |
+| `H` | Print the command list. |
 
 The four-shape test draws:
 
@@ -129,57 +134,83 @@ The four-shape test draws:
 - a square of side `30` mm at `(-60, -60)`;
 - a diamond of diagonal `30` mm at `(+60, -60)`.
 
+After the equal 2.30 m cords were installed, this test completed successfully on the machine.
+
 This sketch does not read an SD card, parse G-code, or home to endstops.
+
+### `Moebius_Polargraph_Gallery`
+
+[firmware/Moebius_Polargraph_Gallery/Moebius_Polargraph_Gallery.ino](firmware/Moebius_Polargraph_Gallery/Moebius_Polargraph_Gallery.ino)
+
+Standalone gallery firmware. It uses the same geometry, motor mapping, coordination, manual positioning, logical-zero workflow, and pen angles as the calibration sketch.
+
+Normal workflow:
+
+1. Position the carriage with `W`, `A`, `S`, and `D`.
+2. Press `Z` to declare the physical position as logical `(0,0)`.
+3. Select a drawing command.
+
+Serial commands (Serial Monitor: `115200` baud, newline):
+
+| Key | Action |
+| --- | --- |
+| `W` / `S` / `A` / `D` | Raw jog. Clears the logical origin. |
+| `Z` | Declare the current physical position as logical `(0, 0)`. |
+| `1` | Draw a heart at logical zero. |
+| `2` | Draw a butterfly curve at logical zero. |
+| `3` | Draw an ellipse at logical zero. |
+| `4` | Draw a rotated rectangle at logical zero. |
+| `G` | Draw all four as a compact 2 × 2 gallery. |
+| `C` | Return to logical `(0, 0)`. |
+| `U` / `N` | Pen-up / pen-down test. |
+| `P` | Print logical state. |
+| `H` | Print the command list. |
+
+The heart and butterfly equations are adapted from the upstream Walldraw demo firmware. Lina Lopes did not author those original equations.
 
 ## Dependencies
 
-
-
 ### Bundled third-party libraries
 
-Copied under `[libraries/](libraries/)`:
+Copied under [`libraries/`](libraries/):
 
+| Library | Version in this tree | Used by current sketches? |
+| --- | --- | --- |
+| [AccelStepper](libraries/AccelStepper/) | 1.58 | Yes — two-stepper test only |
+| [TinyStepper_28BYJ_48](libraries/TinyStepper_28BYJ_48/) | 1.0.0 | Yes — calibration and gallery |
+| [SD](libraries/SD/) | 1.2.3 | No |
 
-| Library                                                 | Version in this tree | Used by current sketches?                                                |
-| ------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------ |
-| [AccelStepper](libraries/AccelStepper/)                 | 1.58                 | Yes — two-stepper test                                                   |
-| [TinyStepper_28BYJ_48](libraries/TinyStepper_28BYJ_48/) | 1.0.0                | Yes — calibration sketch                                                 |
-| [SD](libraries/SD/)                                     | 1.2.3                | No — bundled for the original Walldraw SD interface; pin `4` is reserved |
-
-
-See [CREDITS.md](CREDITS.md) and [LICENSES.md](LICENSES.md) for authors and licenses. Do not relicense these libraries.
+See [CREDITS.md](CREDITS.md) and [LICENSES/THIRD-PARTY.md](LICENSES/THIRD-PARTY.md). These libraries are **not** licensed by Lina Lopes.
 
 ### Arduino Library Manager / IDE libraries
 
-- **AccelStepper** and **TinyStepper_28BYJ_48** can also be installed from Arduino IDE **Tools > Manage Libraries**, as noted in the two-stepper test header and in `[libraries/What's it.md](libraries/What's%20it.md)`.
-- **Servo** (`Servo.h`) is required by the calibration sketch and is **not** bundled here. Install it with the Arduino IDE or Library Manager.
-
-
+- **AccelStepper** and **TinyStepper_28BYJ_48** can also be installed from Arduino IDE **Tools > Manage Libraries**, as noted in [`libraries/What's it.md`](libraries/What's%20it.md).
+- **Servo** (`Servo.h`) is required by the calibration and gallery sketches and is **not** bundled here.
 
 ### Code written for Moebius Polargraph
 
-The two sketches under `[firmware/](firmware/)` are the Moebius Polargraph programs in this repository. The calibration sketch is derived from Walldraw (`WallDrawDemo.ino` kinematics, direction constants, and line subdivision). The two-stepper test is a diagnostic program for this machine; it cites the Walldraw repository as the original wall-drawing project.
+The sketches under [`firmware/`](firmware/) are the Moebius Polargraph programs in this repository. The calibration and gallery sketches are derived from Walldraw (`WallDrawDemo.ino` kinematics, direction constants, and line subdivision). The gallery heart and butterfly curves come from that upstream demo. The two-stepper test follows the original Walldraw stepper diagnostic pattern and cites the same project.
 
 ## Setup
 
 Mechanical assembly of this specific machine is **to be documented**.
 
-The PDF in `[parts/](parts/)` is the 2020 Wall Drawing Machine installation and debugging manual from the upstream project. Use it as historical kit documentation, not as a verified description of the current Moebius Polargraph build.
+The PDF in [`parts/`](parts/) is third-party Wall Drawing Machine 2020 installation material from the upstream project. It is **not** covered by the Moebius Polargraph licenses. Use it as historical kit documentation, not as a verified description of the current build.
 
 Controller setup that is supported by files in this repository:
 
 1. Install the Arduino IDE.
 2. Install the libraries:
-  - copy the bundled folders from `[libraries/](libraries/)` into your Arduino `libraries` directory, as described in `[libraries/What's it.md](libraries/What's%20it.md)`, **or**
-  - install AccelStepper and TinyStepper_28BYJ_48 from **Tools > Manage Libraries**, and ensure Servo is available.
+   - copy the bundled folders from [`libraries/`](libraries/) into your Arduino `libraries` directory, as described in [`libraries/What's it.md`](libraries/What's%20it.md), **or**
+   - install AccelStepper and TinyStepper_28BYJ_48 from **Tools > Manage Libraries**, and ensure Servo is available.
 3. Wire the two ULN2003 boards and the servo to the pins in [Hardware](#hardware). Disconnect power before changing wiring.
-4. Open one sketch from `[firmware/](firmware/)` and upload it to the board.
+4. Open one sketch from [`firmware/`](firmware/) and upload it to the board.
 
-Confirm that the physical left/right motors match the sketch you uploaded. The two sketches name the same pin groups differently (`left`/`right` versus `m1`/`m2`).
+Confirm that the physical left/right motors match the sketch you uploaded. The sketches name the same pin groups differently (`left`/`right` versus `m1`/`m2`).
 
 ## Motor Test
 
-Use `[Moebius_Polargraph_TwoStepperTest](firmware/Moebius_Polargraph_TwoStepperTest/Moebius_Polargraph_TwoStepperTest.ino)` to check that both motors and both ULN2003 drivers move.
+Use [`Moebius_Polargraph_TwoStepperTest`](firmware/Moebius_Polargraph_TwoStepperTest/Moebius_Polargraph_TwoStepperTest.ino) to check that both motors and both ULN2003 drivers move.
 
 1. Disconnect power, then wire only the two stepper drivers (no servo is required).
 2. Upload the sketch.
@@ -191,9 +222,7 @@ This test does not set an origin and does not produce a calibrated drawing path.
 
 ## Calibration
 
-Use `[Moebius_Polargraph_Calibration](firmware/Moebius_Polargraph_Calibration/Moebius_Polargraph_Calibration.ino)`.
-
-Supported by the current sketch:
+Use [`Moebius_Polargraph_Calibration`](firmware/Moebius_Polargraph_Calibration/Moebius_Polargraph_Calibration.ino).
 
 1. Upload the sketch.
 2. Open Serial Monitor at **115200** baud, with line ending set to **Newline**.
@@ -203,9 +232,11 @@ Supported by the current sketch:
 6. Press `P` to print the logical state.
 7. Press `F` to draw the four test shapes, or `C` to return to the declared origin.
 
-**Work in progress:** matching the IK model to the real machine. For the shapes to be undistorted, the point you declare with `Z` should be the geometric origin implied by `X_SEPARATION` and `LIMYMIN` (centered between the cord exits, `LIMYMIN` millimeters below them), and those two constants should be the measured distances on this machine. Measuring, entering, and verifying those values is not finished in this repository.
+Declare `Z` at the geometric origin implied by `X_SEPARATION` and `LIMYMIN`: centered between the cord exits, `LIMYMIN` millimeters below them.
 
 Any `W` `S` `A` `D` jog clears the origin. You must press `Z` again before `F` or `C` will run.
+
+Keep enough equal cord on both spools for the full drawing area. Short usable cord, not the IK model, was the cause of earlier distortion in the lower drawing area.
 
 ## Power and Safety
 
@@ -218,27 +249,48 @@ This is not a complete electrical safety manual. Treat the machine as experiment
 - Stay clear of the moving holder and cords while the motors are running.
 - The two-stepper test runs until you cut power or reset the board.
 
-
-
 ## Known Limitations
 
-- The project is unfinished and still being calibrated.
+- Documentation of this specific mechanical build is still incomplete.
 - There is no homing, no endstops, and no stored machine profile.
-- Current sketches do not draw from SD cards or G-code, even though an SD library is bundled.
-- Inverse-kinematics constants in the calibration sketch may not match this physical machine.
+- Current sketches do not draw from SD cards or G-code.
 - The two-stepper test cannot validate pen lift or drawing geometry.
 - Raw jogging has no software travel limits.
-- The original 2020 assembly PDF describes the upstream Wall Drawing Machine kit. Differences from this machine are **to be documented**.
+- The 2020 assembly PDF describes the upstream Wall Drawing Machine kit and is third-party material.
 
+## Future SD Card Support
 
+**Future work.** Current firmware cannot draw from an SD card. Do not add the SD library to an active sketch until the stages below are reached.
+
+Planned stages:
+
+1. Finish and freeze the calibrated drawing firmware.
+2. Create an isolated SD-card diagnostic sketch that only initializes the card, lists files, and prints file contents without moving the motors.
+3. Define a documented, restricted Moebius G-code subset.
+4. Add a dry-run parser that validates coordinates and drawing bounds without motor movement.
+5. Integrate SD playback with the existing manual-zero workflow.
+6. Require `Z` to be set before any file can run.
+7. Add file listing, explicit file selection, pause, abort, progress, and error reporting.
+8. Develop a computer-side SVG-to-Moebius-G-code converter.
+9. Keep curve flattening, scaling, centering, and path optimization on the computer rather than on the Arduino Uno.
+
+Planned hardware mapping:
+
+| SD / servo signal | Arduino pin |
+| --- | --- |
+| SD `CS` | `4` |
+| SD `MOSI` | `11` |
+| SD `MISO` | `12` |
+| SD `SCK` | `13` |
+| Pen-lift servo | `A0` |
 
 ## Upstream Project
 
 Firmware in this repository was developed from or informed by Walldraw:
 
-- [https://github.com/shihaipeng03/Walldraw](https://github.com/shihaipeng03/Walldraw)
+- <https://github.com/shihaipeng03/Walldraw>
 
-The calibration sketch copies motor-direction constants and preserves inverse kinematics, line subdivision, and coordinated stepping from `WallDrawDemo.ino`. The two-stepper test cites the same upstream project. Walldraw is a separate project; this repository does not claim to be the original Walldraw hardware or the complete upstream firmware set.
+The calibration and gallery sketches preserve inverse kinematics, line subdivision, and coordinated stepping from `WallDrawDemo.ino`. The gallery heart and butterfly curves are adapted from that demo. The two-stepper test cites the same upstream project. Walldraw is a separate project. This repository does not claim to be the original Walldraw hardware or the complete upstream firmware set.
 
 ## Credits
 
@@ -250,13 +302,22 @@ Moebius Polargraph is part of the Machines to Draw collection by Lina Lopes.
 
 Upstream Walldraw: **shihaipeng03**.
 
-Third-party library and manual credits are listed in [CREDITS.md](CREDITS.md).
+Third-party library and manual credits are listed in [CREDITS.md](CREDITS.md) and [LICENSES/THIRD-PARTY.md](LICENSES/THIRD-PARTY.md).
 
 ## License
 
-This repository **does not** have a single project-wide license. Do not treat the tree as MIT-licensed as a whole.
+Moebius Polargraph is an open-source project with a **scoped multi-license** structure. The complete repository is **not** uniformly MIT-licensed.
 
-- Upstream Walldraw software is published under the MIT License. See [LICENSES.md](LICENSES.md).
-- Bundled libraries keep their own licenses (MIT, GPL-2.0-or-commercial, and GPL-3.0-or-later). Those licenses are not replaced by anything in this README.
-- Original Moebius Polargraph documentation and any original firmware changes have **no license declared yet**. Publicly visible files without a license are not permission to copy, modify, or relicense them.
-- The 2020 installation PDF has no license text in this repository.
+| Scope | License |
+| --- | --- |
+| Original firmware contributions and Walldraw-derived sketch code under [`firmware/`](firmware/) | [MIT License](LICENSES/MIT.txt). Copyright (c) 2021 shihaipeng03; Copyright (c) 2026 Lina Lopes |
+| Original documentation by Lina Lopes (`README.md`, `CREDITS.md`, this license overview, future original manuals, original diagrams and photographs unless marked otherwise) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) — full text in [LICENSES/CC-BY-4.0.txt](LICENSES/CC-BY-4.0.txt) |
+| Future original fabrication files by Lina Lopes | **Not applied yet.** Intended license: CERN-OHL-S-2.0. No such files are in this repository |
+| Bundled libraries | Their own licenses; see [LICENSES/THIRD-PARTY.md](LICENSES/THIRD-PARTY.md) |
+| 2020 assembly PDF | Third-party reference material. **Excluded** from the MIT, CC BY 4.0, and future CERN-OHL-S-2.0 grants |
+
+The root [LICENSE](LICENSE) file explains these scopes.
+
+`Moebius_Polargraph_TwoStepperTest.ino` depends on AccelStepper. AccelStepper is licensed GPL V2 or Commercial and is not relicensed by the MIT firmware grant. Distributing a combined program built with AccelStepper is subject to AccelStepper’s terms.
+
+This README is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

@@ -1,16 +1,24 @@
-// Based on Walldraw, Copyright (c) 2021 shihaipeng03 (MIT License).
-// Modifications Copyright (c) 2026 Lina Lopes.
-// SPDX-License-Identifier: MIT
-//
-// Manual controller and four-shape drawing test for the Moebius Polargraph.
-//
-// Purpose:
-// 1. Position the carriage manually with raw motor jogging.
-// 2. Declare the known physical reference as logical (0, 0) with Z.
-// 3. Draw four shapes around the logical origin with F.
-//
-// The firmware preserves the validated Cartesian IK, line subdivision,
-// motor direction constants, and Bresenham-style coordination.
+/*
+  Moebius Polargraph - Drawing Gallery
+
+  A standalone gallery firmware for the calibrated Moebius Polargraph.
+  It preserves the validated geometry, motor mapping, movement coordination,
+  manual positioning, logical zero workflow, and pen angles.
+
+  Gallery commands:
+    1 - Heart
+    2 - Butterfly curve
+    3 - Ellipse
+    4 - Rotated rectangle
+    G - Four-drawing gallery
+
+  This firmware is derived from the Wall Drawing Machine project:
+  https://github.com/shihaipeng03/Walldraw
+
+  Based on Walldraw, Copyright (c) 2021 shihaipeng03 (MIT License).
+  Modifications Copyright (c) 2026 Lina Lopes.
+  SPDX-License-Identifier: MIT
+*/
 
 #include <TinyStepper_28BYJ_48.h>
 #include <Servo.h>
@@ -22,33 +30,28 @@
 
 #define STEP_DELAY_US   1
 
-// These direction constants are copied unchanged from WallDrawDemo.ino.
+// Validated motor directions for this machine.
 #define M1_REEL_OUT      1
 #define M1_REEL_IN      -1
 #define M2_REEL_OUT     -1
 #define M2_REEL_IN       1
 
+// Calibrated machine geometry in millimeters.
 #define X_SEPARATION    820
 #define LIMXMAX         ( X_SEPARATION * 0.5)
 #define LIMXMIN         (-X_SEPARATION * 0.5)
 #define LIMYMIN         520
 
+// Calibrated pen-lift angles.
 #define PEN_UP_ANGLE    90
 #define PEN_DOWN_ANGLE  60
 
 #define BAUD            115200
-
-// Each raw jog changes each selected motor by this many steps.
-// With the configured spool, 20 steps correspond to about 1.07 mm of cord.
 #define RAW_JOG_STEPS   20
-
 #define PEN_SETTLE_MS   500
 
-// Four-shape test geometry in millimeters.
-#define SHAPE_OFFSET    60.0
-#define CIRCLE_RADIUS   15.0
-#define SHAPE_SIZE      30.0
-#define CIRCLE_STEP     (PI / 90.0)
+// Sampling resolution used by the parametric drawings.
+#define CURVE_STEP      (PI / 90.0)
 
 TinyStepper_28BYJ_48 m1;
 TinyStepper_28BYJ_48 m2;
@@ -62,9 +65,8 @@ static bool zeroIsSet = false;
 static bool penIsDown = false;
 
 
-// Convert a logical XY position directly to left and right cord lengths.
-// The anchors are at (-410, +520) and (+410, +520), so logical +X is
-// physically right and logical +Y is physically up toward the anchors.
+// Convert a logical XY position to left and right cord lengths in steps.
+// Logical +X points right and logical +Y points up toward the anchors.
 void IK(float x, float y, long &l1, long &l2) {
   float dy = y - LIMYMIN;
   float dx = x - LIMXMIN;
@@ -75,7 +77,7 @@ void IK(float x, float y, long &l1, long &l2) {
 }
 
 
-// Change only the virtual position. No motor movement occurs here.
+// Change the virtual position without moving the motors.
 static void teleport(float x, float y) {
   posx = x;
   posy = y;
@@ -88,8 +90,8 @@ static void teleport(float x, float y) {
 }
 
 
-// Move to one XY target using direct cord-length direction selection and
-// the original Bresenham-style coordination between the two motors.
+// Move to one XY target using the validated cord directions and the original
+// Bresenham-style coordination between the two motors.
 void moveto(float x, float y) {
   long l1;
   long l2;
@@ -97,15 +99,11 @@ void moveto(float x, float y) {
 
   long d1 = l1 - laststep1;
   long d2 = l2 - laststep2;
-
   long ad1 = abs(d1);
   long ad2 = abs(d2);
 
-  // A longer geometric cord length requires reeling OUT.
-  // A shorter geometric cord length requires reeling IN.
   int dir1 = d1 > 0 ? M1_REEL_OUT : M1_REEL_IN;
   int dir2 = d2 > 0 ? M2_REEL_OUT : M2_REEL_IN;
-
   long over = 0;
 
   if (ad1 > ad2) {
@@ -141,8 +139,8 @@ void moveto(float x, float y) {
 }
 
 
-// Split a Cartesian line into very small targets before calling moveto().
-// This function preserves the subdivision behavior of WallDrawDemo.ino.
+// Split a Cartesian line into short targets so that it remains straight in XY
+// space after the Polargraph inverse-kinematics conversion.
 static void line_safe(float x, float y) {
   float dx = x - posx;
   float dy = y - posy;
@@ -158,15 +156,15 @@ static void line_safe(float x, float y) {
   float y0 = posy;
 
   for (long j = 0; j <= pieces; ++j) {
-    float a = (float)j / (float)pieces;
-    moveto((x - x0) * a + x0, (y - y0) * a + y0);
+    float amount = (float)j / (float)pieces;
+    moveto((x - x0) * amount + x0,
+           (y - y0) * amount + y0);
   }
 
   moveto(x, y);
 }
 
 
-// Raise the pen and wait for the servo mechanism to settle.
 void raisePen() {
   pen.write(PEN_UP_ANGLE);
   penIsDown = false;
@@ -174,7 +172,6 @@ void raisePen() {
 }
 
 
-// Lower the pen and wait for the servo mechanism to settle.
 void lowerPen() {
   pen.write(PEN_DOWN_ANGLE);
   penIsDown = true;
@@ -182,8 +179,8 @@ void lowerPen() {
 }
 
 
-// Move both motors directly without using XY coordinates.
-// Raw jogging invalidates any previously declared logical zero.
+// Move both motors directly while positioning the carriage manually.
+// Raw jogging clears the logical zero because its XY position is unknown.
 void rawJogPair(int direction1, int direction2) {
   if (penIsDown) {
     raisePen();
@@ -217,7 +214,7 @@ void printPosition() {
 
 void printHelp() {
   Serial.println();
-  Serial.println(F("=== Moebius Polargraph calibration ==="));
+  Serial.println(F("=== Moebius Polargraph Gallery ==="));
   Serial.println(F("Set Serial Monitor to 115200 baud and Newline."));
   Serial.println();
   Serial.println(F("Before Z - raw physical positioning:"));
@@ -226,10 +223,16 @@ void printHelp() {
   Serial.println(F("  A : move physically LEFT"));
   Serial.println(F("  D : move physically RIGHT"));
   Serial.println();
-  Serial.println(F("Reference and drawing commands:"));
+  Serial.println(F("Gallery commands:"));
+  Serial.println(F("  1 : draw a heart at logical zero"));
+  Serial.println(F("  2 : draw a butterfly curve at logical zero"));
+  Serial.println(F("  3 : draw an ellipse at logical zero"));
+  Serial.println(F("  4 : draw a rotated rectangle at logical zero"));
+  Serial.println(F("  G : draw all four as a 2 x 2 gallery"));
+  Serial.println();
+  Serial.println(F("Reference and utility commands:"));
   Serial.println(F("  Z : declare current physical position as logical (0,0)"));
-  Serial.println(F("  F : draw circle, triangle, square, and diamond"));
-  Serial.println(F("  C : return to logical (0, 0)"));
+  Serial.println(F("  C : return to logical (0,0)"));
   Serial.println(F("  U : pen up test (90 degrees)"));
   Serial.println(F("  N : pen down test (60 degrees)"));
   Serial.println(F("  P : print logical state"));
@@ -249,85 +252,7 @@ bool requireZero() {
 }
 
 
-// Draw a circle using the same 2-degree angular sampling as WallDrawDemo.ino.
-void drawCircle(float centerX, float centerY, float radius) {
-  float startX = centerX + radius;
-  float startY = centerY;
-
-  raisePen();
-  line_safe(startX, startY);
-  lowerPen();
-
-  for (float angle = CIRCLE_STEP; angle < TWO_PI; angle += CIRCLE_STEP) {
-    line_safe(centerX + cos(angle) * radius,
-              centerY + sin(angle) * radius);
-  }
-
-  line_safe(startX, startY);
-  raisePen();
-}
-
-
-// Draw an equilateral triangle centered on its centroid.
-void drawTriangle(float centerX, float centerY, float side) {
-  float topY = centerY + side / sqrt(3.0);
-  float bottomY = centerY - side / (2.0 * sqrt(3.0));
-  float halfSide = side * 0.5;
-
-  raisePen();
-  line_safe(centerX, topY);
-  lowerPen();
-  line_safe(centerX + halfSide, bottomY);
-  line_safe(centerX - halfSide, bottomY);
-  line_safe(centerX, topY);
-  raisePen();
-}
-
-
-// Draw an axis-aligned square centered on the requested position.
-void drawSquare(float centerX, float centerY, float side) {
-  float halfSide = side * 0.5;
-
-  raisePen();
-  line_safe(centerX - halfSide, centerY - halfSide);
-  lowerPen();
-  line_safe(centerX + halfSide, centerY - halfSide);
-  line_safe(centerX + halfSide, centerY + halfSide);
-  line_safe(centerX - halfSide, centerY + halfSide);
-  line_safe(centerX - halfSide, centerY - halfSide);
-  raisePen();
-}
-
-
-// Draw a diamond with equal horizontal and vertical diagonals.
-void drawDiamond(float centerX, float centerY, float diagonal) {
-  float halfDiagonal = diagonal * 0.5;
-
-  raisePen();
-  line_safe(centerX, centerY + halfDiagonal);
-  lowerPen();
-  line_safe(centerX + halfDiagonal, centerY);
-  line_safe(centerX, centerY - halfDiagonal);
-  line_safe(centerX - halfDiagonal, centerY);
-  line_safe(centerX, centerY + halfDiagonal);
-  raisePen();
-}
-
-
-// Draw the four validated test shapes around logical zero.
-void drawFourShapes() {
-  Serial.println(F("Drawing circle at (-60,+60)."));
-  drawCircle(-SHAPE_OFFSET, SHAPE_OFFSET, CIRCLE_RADIUS);
-
-  Serial.println(F("Drawing triangle at (+60,+60)."));
-  drawTriangle(SHAPE_OFFSET, SHAPE_OFFSET, SHAPE_SIZE);
-
-  Serial.println(F("Drawing square at (-60,-60)."));
-  drawSquare(-SHAPE_OFFSET, -SHAPE_OFFSET, SHAPE_SIZE);
-
-  Serial.println(F("Drawing diamond at (+60,-60)."));
-  drawDiamond(SHAPE_OFFSET, -SHAPE_OFFSET, SHAPE_SIZE);
-
+void finishDrawing() {
   raisePen();
   Serial.println(F("Returning to logical zero."));
   line_safe(0.0, 0.0);
@@ -335,14 +260,162 @@ void drawFourShapes() {
 }
 
 
+// Parametric heart adapted from the original WallDrawDemo firmware.
+void drawHeart(float centerX, float centerY,
+               float xScale, float yScale) {
+  float startX = centerX;
+  float startY = centerY + yScale * 7.0;
+
+  raisePen();
+  line_safe(startX, startY);
+  lowerPen();
+
+  for (float angle = 0.0; angle <= TWO_PI; angle += CURVE_STEP * 0.5) {
+    float sine = sin(angle);
+    float x = xScale * 15.0 * sine * sine * sine;
+    float y = yScale * (15.0 * cos(angle)
+                         - 5.0 * cos(2.0 * angle)
+                         - 2.0 * cos(3.0 * angle)
+                         - cos(4.0 * angle));
+
+    line_safe(centerX + x, centerY + y);
+  }
+
+  line_safe(startX, startY);
+  raisePen();
+}
+
+
+// Butterfly curve adapted from the original WallDrawDemo firmware.
+void drawButterfly(float centerX, float centerY, int loops,
+                   float xScale, float yScale) {
+  float startY = centerY + yScale * 0.71828;
+
+  raisePen();
+  line_safe(centerX, startY);
+  lowerPen();
+
+  for (float angle = 0.0;
+       angle < TWO_PI * loops;
+       angle += CURVE_STEP) {
+    float sineTerm = sin(angle / 12.0);
+    float sineToFifth = sineTerm * sineTerm * sineTerm
+                        * sineTerm * sineTerm;
+    float radial = exp(cos(angle))
+                   - 2.0 * cos(4.0 * angle)
+                   + sineToFifth;
+
+    float x = xScale * sin(angle) * radial;
+    float y = yScale * cos(angle) * radial;
+    line_safe(centerX + x, centerY + y);
+  }
+
+  raisePen();
+}
+
+
+void drawEllipse(float centerX, float centerY,
+                 float radiusX, float radiusY) {
+  raisePen();
+  line_safe(centerX + radiusX, centerY);
+  lowerPen();
+
+  for (float angle = CURVE_STEP; angle < TWO_PI; angle += CURVE_STEP) {
+    line_safe(centerX + cos(angle) * radiusX,
+              centerY + sin(angle) * radiusY);
+  }
+
+  line_safe(centerX + radiusX, centerY);
+  raisePen();
+}
+
+
+void drawRotatedRectangle(float centerX, float centerY,
+                          float width, float height,
+                          float angleDegrees) {
+  float halfWidth = width * 0.5;
+  float halfHeight = height * 0.5;
+  float angle = radians(angleDegrees);
+  float cosine = cos(angle);
+  float sine = sin(angle);
+
+  float localX[4] = {-halfWidth, halfWidth, halfWidth, -halfWidth};
+  float localY[4] = {-halfHeight, -halfHeight, halfHeight, halfHeight};
+  float x[4];
+  float y[4];
+
+  for (int i = 0; i < 4; ++i) {
+    x[i] = centerX + localX[i] * cosine - localY[i] * sine;
+    y[i] = centerY + localX[i] * sine + localY[i] * cosine;
+  }
+
+  raisePen();
+  line_safe(x[0], y[0]);
+  lowerPen();
+
+  for (int i = 1; i < 4; ++i) {
+    line_safe(x[i], y[i]);
+  }
+
+  line_safe(x[0], y[0]);
+  raisePen();
+}
+
+
+void drawSingleHeart() {
+  Serial.println(F("Drawing heart."));
+  drawHeart(0.0, 0.0, 2.0, 2.0);
+  finishDrawing();
+}
+
+
+void drawSingleButterfly() {
+  Serial.println(F("Drawing butterfly curve."));
+  drawButterfly(0.0, 0.0, 3, 10.0, 10.0);
+  finishDrawing();
+}
+
+
+void drawSingleEllipse() {
+  Serial.println(F("Drawing ellipse."));
+  drawEllipse(0.0, 0.0, 35.0, 20.0);
+  finishDrawing();
+}
+
+
+void drawSingleRotatedRectangle() {
+  Serial.println(F("Drawing rotated rectangle."));
+  drawRotatedRectangle(0.0, 0.0, 60.0, 35.0, 30.0);
+  finishDrawing();
+}
+
+
+// Draw four compact examples inside the area validated by the earlier tests.
+void drawGallery() {
+  Serial.println(F("Gallery 1/4: heart."));
+  drawHeart(-50.0, 45.0, 1.0, 1.0);
+
+  Serial.println(F("Gallery 2/4: butterfly curve."));
+  drawButterfly(50.0, 45.0, 3, 4.5, 4.5);
+
+  Serial.println(F("Gallery 3/4: ellipse."));
+  drawEllipse(-50.0, -45.0, 20.0, 12.0);
+
+  Serial.println(F("Gallery 4/4: rotated rectangle."));
+  drawRotatedRectangle(50.0, -45.0, 36.0, 22.0, 30.0);
+
+  finishDrawing();
+}
+
+
 void setup() {
   Serial.begin(BAUD);
 
-  // Preserve the original motor pin mapping.
+  // Preserve the validated motor pin mapping.
   m1.connectToPins(7, 8, 9, 10);
   m2.connectToPins(2, 3, 5, 6);
 
-  // Preserve the original speed and acceleration values.
+  // Preserve the values used by the validated drawing firmware.
   m1.setSpeedInStepsPerSecond(10000);
   m1.setAccelerationInStepsPerSecondPerSecond(100000);
   m2.setSpeedInStepsPerSecond(10000);
@@ -351,10 +424,8 @@ void setup() {
   pen.attach(A0);
   raisePen();
 
-  // Do not call teleport() here. The physical reference must be declared
-  // explicitly by the user with Z after manual positioning.
+  // The physical reference must be declared manually with Z.
   zeroIsSet = false;
-
   printHelp();
 }
 
@@ -366,7 +437,6 @@ void loop() {
 
   char command = Serial.read();
 
-  // Ignore line endings sent by the Serial Monitor.
   if (command == '\n' || command == '\r' || command == ' ') {
     return;
   }
@@ -407,17 +477,38 @@ void loop() {
     case 'C':
     case 'c':
       if (requireZero()) {
-        raisePen();
-        Serial.println(F("Returning to logical (0,0)."));
-        line_safe(0.0, 0.0);
-        printPosition();
+        finishDrawing();
       }
       break;
 
-    case 'F':
-    case 'f':
+    case '1':
       if (requireZero()) {
-        drawFourShapes();
+        drawSingleHeart();
+      }
+      break;
+
+    case '2':
+      if (requireZero()) {
+        drawSingleButterfly();
+      }
+      break;
+
+    case '3':
+      if (requireZero()) {
+        drawSingleEllipse();
+      }
+      break;
+
+    case '4':
+      if (requireZero()) {
+        drawSingleRotatedRectangle();
+      }
+      break;
+
+    case 'G':
+    case 'g':
+      if (requireZero()) {
+        drawGallery();
       }
       break;
 

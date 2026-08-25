@@ -11,7 +11,12 @@
   Original Wall Drawing Machine project:
   https://github.com/shihaipeng03/Walldraw
 
-  Required library: AccelStepper
+  Based on Walldraw, Copyright (c) 2021 shihaipeng03 (MIT License).
+  Modifications Copyright (c) 2026 Lina Lopes.
+  SPDX-License-Identifier: MIT
+
+  Required library: AccelStepper (GPL V2 or Commercial).
+  AccelStepper is not relicensed by this MIT notice.
   Install it from Arduino IDE > Tools > Manage Libraries.
 */
 
