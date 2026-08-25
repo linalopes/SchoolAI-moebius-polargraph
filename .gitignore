@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Editors and IDEs
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+*.sublime-workspace
+
+# Arduino / avr-gcc build artifacts
+build/
+*.elf
+*.hex
+*.bin
+*.eep
+*.lss
+*.map
+*.o
+*.d
+*.a
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Python cache (local tooling)
+__pycache__/
+*.pyc
